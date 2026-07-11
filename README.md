@@ -11,6 +11,7 @@ Delivery drivers often take a different route than the "shortest path" a compute
 ## Screenshots
 
 ![Baseline vs. hybrid route comparison map](docs/screenshots/comparison-map.png)
+
 *Side-by-side comparison view: the map overlays the straight-line baseline route, the zone-penalty hybrid route, and the real driver's actual path — toggle each layer on or off.*
 
 ![Delivery Progress tracking map](docs/screenshots/delivery-progress.png)
