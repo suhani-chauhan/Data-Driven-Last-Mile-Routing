@@ -42,6 +42,58 @@ sequences, then score predicted sequences against actual driver sequences. `rout
 `package_data.json`, and `travel_times.json` are the primary per-route inputs; `actual_sequences.json`
 holds the ground-truth stop order used for scoring.
 
+### Schema of `model_build_inputs/*.json`
+
+All four files are top-level JSON objects keyed by `RouteID_<uuid>`. Within a route, the join key across
+files is the 2-letter **stop code** (e.g. `"AD"`, `"AF"`) defined in that route's `route_data.json` →
+`stops`. A route can be fully reconstructed by cross-referencing these files on `RouteID` + stop code.
+
+- **`route_data.json`** — one record per route:
+  ```json
+  {
+    "station_code": "DLA3",
+    "date_YYYY_MM_DD": "2018-07-27",
+    "departure_time_utc": "16:02:10",
+    "executor_capacity_cm3": 3313071.0,
+    "route_score": "High",
+    "stops": {
+      "AD": { "lat": 34.099611, "lng": -118.283062, "type": "Dropoff", "zone_id": "P-12.3C" }
+    }
+  }
+  ```
+
+- **`package_data.json`** — nested `route → stop_code → PackageID_<uuid> → package fields`. A stop can
+  have multiple packages:
+  ```json
+  {
+    "AD": {
+      "PackageID_9d7fdd03-...": {
+        "scan_status": "DELIVERED",
+        "time_window": { "start_time_utc": NaN, "end_time_utc": NaN },
+        "planned_service_time_seconds": 59.3,
+        "dimensions": { "depth_cm": 25.4, "height_cm": 7.6, "width_cm": 17.8 }
+      }
+    }
+  }
+  ```
+  `time_window` fields are literal JSON `NaN` (non-standard JSON, but Python's `json` module parses it)
+  when no delivery window applies.
+
+- **`travel_times.json`** — nested `route → stop_code → stop_code → seconds`, i.e. a full pairwise
+  travel-time matrix per route (diagonal is `0.0`). This N×N-per-route matrix is why the file is ~1.8 GB:
+  ```json
+  {
+    "AD": { "AD": 0.0, "AF": 198.3, "AG": 264.9 },
+    "AF": { "AD": 209.8, "AF": 0.0, "AG": 348.3 }
+  }
+  ```
+
+- **`actual_sequences.json`** — one record per route, single `"actual"` key mapping `stop_code → visit
+  order (int)`, i.e. the ground-truth driver sequence:
+  ```json
+  { "actual": { "AD": 105, "AF": 47, "AG": 4, "BA": 33 } }
+  ```
+
 ## Python environment
 
 `venv/` is a Python 3.10.7 virtualenv with packages already installed, indicating the intended stack for
