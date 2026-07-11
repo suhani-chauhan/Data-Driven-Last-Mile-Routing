@@ -42,6 +42,13 @@ sequences, then score predicted sequences against actual driver sequences. `rout
 `package_data.json`, and `travel_times.json` are the primary per-route inputs; `actual_sequences.json`
 holds the ground-truth stop order used for scoring.
 
+**Route counts**: training has 6,112 routes. The evaluation set has **3,052 routes, not the commonly
+cited 3,072** — verified directly against all four raw eval files (`eval_route_data.json`,
+`eval_package_data.json`, `eval_travel_times.json`, `eval_actual_sequences.json` under
+`data/raw/almrrc2021-data-evaluation/`), which independently agree on 3,052 distinct route IDs. This is a
+property of this raw data release, not an artifact of any processing. Total dataset: **9,164 routes**, not
+9,184.
+
 ### Schema of `model_build_inputs/*.json`
 
 All four files are top-level JSON objects keyed by `RouteID_<uuid>`. Within a route, the join key across

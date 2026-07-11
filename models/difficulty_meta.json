@@ -1,0 +1,25 @@
+{
+  "feature_cols": [
+    "package_count",
+    "total_volume_cm3",
+    "total_planned_service_time_seconds",
+    "has_time_window",
+    "lat",
+    "lng",
+    "distance_from_depot_seconds",
+    "route_stop_count",
+    "departure_hour"
+  ],
+  "target_col": "difficulty",
+  "metrics": {
+    "rmse": 0.26110509658920367,
+    "mae": 0.217816590205843,
+    "r2": -0.07209598837899978,
+    "n_train_stops": 71288,
+    "n_val_stops": 17986,
+    "n_train_routes": 480,
+    "n_val_routes": 120,
+    "target_mean": 0.31946584575890385,
+    "target_std": 0.24868104305506422
+  }
+}

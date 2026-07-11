@@ -260,10 +260,10 @@ STOPS_DTYPES = {
     "delivery_attempted_count": "int32",
     "total_planned_service_time_seconds": "float64",
     "total_volume_cm3": "float64",
-    "has_time_window": "bool",
     "stop_sequence_order": "Int32",
 }
 STOPS_DATETIME_COLS = ["window_start_utc", "window_end_utc"]
+STOPS_BOOL_COLS = ["has_time_window"]
 
 PACKAGES_DTYPES = {
     "route_id": "string",
@@ -276,9 +276,9 @@ PACKAGES_DTYPES = {
     "height_cm": "float64",
     "width_cm": "float64",
     "volume_cm3": "float64",
-    "has_time_window": "bool",
 }
 PACKAGES_DATETIME_COLS = ["window_start_utc", "window_end_utc"]
+PACKAGES_BOOL_COLS = ["has_time_window"]
 
 
 # ---------------------------------------------------------------------------
@@ -458,7 +458,9 @@ def _write_packages_and_stops_jsonl(source: DataSource, route_data: dict, sequen
             stop_f.write("\n")
 
 
-def _jsonl_to_parquet(jsonl_path: Path, out_path: Path, dtypes: dict, datetime_cols: list[str], schema: pa.Schema) -> int:
+def _jsonl_to_parquet(
+    jsonl_path: Path, out_path: Path, dtypes: dict, datetime_cols: list[str], bool_cols: list[str], schema: pa.Schema
+) -> int:
     # dtype="object" forces every column to a consistent raw dtype at read time.
     # Without it, pandas infers a dtype per partition independently, and a column
     # that's entirely null within one partition (e.g. scan_status across an
@@ -466,11 +468,21 @@ def _jsonl_to_parquet(jsonl_path: Path, out_path: Path, dtypes: dict, datetime_c
     # inferred as float64 there vs object in partitions that have real string
     # values -- Dask's cross-partition meta check then fails before the explicit
     # .astype() below even runs. Reproduced and confirmed fixed at full scale.
+    #
+    # But dtype="object" here actually resolves to pandas' string[pyarrow] dtype,
+    # which stringifies JSON booleans to the literal strings "True"/"False" --
+    # and .astype("bool") on a non-empty string is always True in pandas (plain
+    # Python truthiness), so "False" silently became True. Confirmed by a minimal
+    # repro. Bool columns must be compared against the string explicitly instead
+    # of blindly astype()'d; every other type (float/int/datetime/null) round-trips
+    # through the stringification correctly, so this is bool-specific.
     with dask.config.set(scheduler=DASK_SCHEDULER):
         ddf = dd.read_json(jsonl_path, lines=True, blocksize=DASK_BLOCKSIZE, dtype="object")
         ddf = ddf.astype(dtypes)
         for col in datetime_cols:
             ddf[col] = dd.to_datetime(ddf[col])
+        for col in bool_cols:
+            ddf[col] = ddf[col] == "True"
         ddf.to_parquet(out_path, write_index=False, schema=schema)
         return len(ddf)
 
@@ -502,9 +514,9 @@ def run(sources: list[DataSource], output_dir: Path) -> None:
     print(f"routes.parquet: {len(route_rows)} rows")
     del route_rows
 
-    n_packages = _jsonl_to_parquet(packages_jsonl, output_dir / "packages.parquet", PACKAGES_DTYPES, PACKAGES_DATETIME_COLS, PACKAGES_SCHEMA)
+    n_packages = _jsonl_to_parquet(packages_jsonl, output_dir / "packages.parquet", PACKAGES_DTYPES, PACKAGES_DATETIME_COLS, PACKAGES_BOOL_COLS, PACKAGES_SCHEMA)
     print(f"packages.parquet: {n_packages} rows")
-    n_stops = _jsonl_to_parquet(stops_jsonl, output_dir / "stops.parquet", STOPS_DTYPES, STOPS_DATETIME_COLS, STOPS_SCHEMA)
+    n_stops = _jsonl_to_parquet(stops_jsonl, output_dir / "stops.parquet", STOPS_DTYPES, STOPS_DATETIME_COLS, STOPS_BOOL_COLS, STOPS_SCHEMA)
     print(f"stops.parquet: {n_stops} rows")
     packages_jsonl.unlink()
     stops_jsonl.unlink()
