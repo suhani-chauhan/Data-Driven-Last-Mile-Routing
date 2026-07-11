@@ -35,7 +35,12 @@ from model_apply import RouteData, load_route, solve
 from model_score import actual_sequence_list, cost_matrix_dict, isinvalid, score, submitted_sequence_list
 from zone_penalty import build_pij_table
 
-PROCESSED_DIR = Path("data/processed")
+# Full data/processed/ is gitignored (multi-hundred-MB, one file over GitHub's
+# 100MB limit) so it never exists on Streamlit Community Cloud. data/deploy/
+# is a small, git-committed subset covering just the ROUTES below -- see
+# build_deploy_dataset.py. Local dev machines have the full data/processed/
+# and keep using it; only a from-git-clone deploy falls back to data/deploy/.
+PROCESSED_DIR = Path("data/processed") if Path("data/processed").exists() else Path("data/deploy")
 TIME_LIMIT_SECONDS = 60
 ALPHA = 1.0
 CUSTOM_ROUTE_TIME_LIMIT_SECONDS = 30  # custom routes are hand-entered, so small; no need for the full 60s
