@@ -1,0 +1,21 @@
+# Data pipeline
+pandas==2.3.3
+numpy==2.2.6
+pyarrow==25.0.0
+dask==2026.7.0
+ijson==3.5.1
+
+# Modeling / optimization
+scipy==1.15.3
+scikit-learn==1.7.2
+xgboost==3.2.0
+ortools==9.15.6755
+
+# Dashboard
+streamlit==1.59.1
+streamlit-folium==0.26.2
+folium==0.20.0
+geopy==2.4.1
+
+# Visualization (CLI comparison script)
+matplotlib==3.10.9

@@ -242,6 +242,39 @@ two differ.
   stops) in the sample. Not yet root-caused — plausibly in the ERP scoring
   step rather than the OR-Tools solve step, but unconfirmed.
 
-**Not yet started:** XGBoost difficulty-score training, hybrid cost-matrix
-integration (`α · P_ij`), full evaluation-set scoring, portfolio
-visualizations, Dockerization.
+**Hybrid cost function — headline result:**
+- The XGBoost per-stop difficulty model (`model_build.py`) never reached a
+  usable validation R² (see Known Limitations above and the model's own
+  training output) — a feature swap moved it from -0.0721 to -0.0424, still
+  not meaningfully positive, so per an explicit stop condition it was left
+  out of the live cost matrix (kept in the repo as documented exploration)
+  in favor of a lightweight zone-transition-frequency `P_ij`
+  (`src/zone_penalty.py`): `P_ij = 1 - P(zone(j) | zone(i))`, the empirical
+  transition probability observed across every training route's actual
+  sequence — the direct frequency-count implementation of the brief's own
+  `P_ij` definition, and the fallback for the dropped PPM idea.
+- Wired into `model_apply.py` as `C_ij = T_ij + α · scale · P_ij`
+  (α = 1.0, `scale` = each route's own mean `T_ij`), affecting only the
+  arc-cost objective — the `Time` dimension's hard constraints stay on real
+  T_ij + service_time, untouched.
+- **Paired comparison, 15 random (not hand-picked) training routes
+  (seed=99), each solved twice — with and without the penalty — at a
+  consistent 60s budget per solve:**
+  - Feasibility: 15/15 (100%) for both conditions — up from 27/30 (90%) in
+    the earlier 15s-budget run.
+  - Baseline average official score: 0.072827
+  - Hybrid average official score: 0.049751
+  - **Improvement: 31.69%** ((0.072827 − 0.049751) / 0.072827 × 100)
+  - Both averages already land below the brief's 0.08–0.12 naive-geometric
+    baseline range; the hybrid sits meaningfully closer to the brief's
+    0.03–0.04 "elite competitive" target than the baseline does.
+  - All 30 solves (15 routes × 2 conditions) used the full 60s budget —
+    consistent with expected `GUIDED_LOCAL_SEARCH` behavior for this
+    metaheuristic under a fixed wall-clock limit — so the 31.69% figure
+    reflects best-within-budget performance for both conditions, not a
+    fully converged optimum for either.
+- Reproducible via `src/compare_baseline_vs_hybrid.py` (writes
+  `results/comparison.csv`); visualized for the 33-stop stress-test route in
+  `results/route_comparison.png` via `src/plot_route_comparison.py`.
+
+**Not yet started:** full evaluation-set scoring, Dockerization.

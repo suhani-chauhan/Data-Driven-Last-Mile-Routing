@@ -45,6 +45,35 @@ ACTUAL_COLOR = "#404040"  # neutral dark gray, distinct from any categorical hue
 DEPOT_COLOR = "#D55E00"  # Okabe-Ito vermillion
 
 
+def build_comparison_figure(route_id: str, stop_count: int, coords: pd.DataFrame, actual_codes: list[str], panels: list[tuple[str, list[str], float]]):
+    """panels: list of (label, solved_codes, official_score) tuples, one per subplot.
+    coords: DataFrame indexed by stop_code with lat/lng columns. Pure plotting --
+    takes already-solved/scored data in, returns a Figure, no solving/scoring/IO."""
+    actual_lat = [coords.loc[code].lat for code in actual_codes]
+    actual_lng = [coords.loc[code].lng for code in actual_codes]
+
+    fig, axes = plt.subplots(1, len(panels), figsize=(7 * len(panels), 7), sharex=True, sharey=True)
+    if len(panels) == 1:
+        axes = [axes]
+    for ax, (label, solved_codes, s) in zip(axes, panels):
+        solved_lat = [coords.loc[code].lat for code in solved_codes]
+        solved_lng = [coords.loc[code].lng for code in solved_codes]
+
+        ax.plot(actual_lng, actual_lat, linestyle=":", linewidth=2, color=ACTUAL_COLOR, label="Actual driver route", zorder=2)
+        ax.plot(solved_lng, solved_lat, linestyle="-", linewidth=2, color=SOLVED_COLOR, marker="o", markersize=4, label="Solved route", zorder=3)
+        ax.scatter([coords.loc[solved_codes[0]].lng], [coords.loc[solved_codes[0]].lat], s=120, marker="*", color=DEPOT_COLOR, label="Depot (start)", zorder=4)
+
+        ax.set_title(f"{label}\nofficial score: {s:.4f}  (0.0 = identical to actual, lower is better)")
+        ax.set_xlabel("Longitude")
+        ax.set_ylabel("Latitude")
+        ax.legend(loc="best", fontsize=9)
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle(f"Route {route_id}  ({stop_count} stops)", fontsize=12)
+    fig.tight_layout()
+    return fig
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--route-id", default=DEFAULT_ROUTE_ID)
@@ -61,8 +90,6 @@ def main() -> None:
 
     actual = actual_sequence_list(stops_df)
     cost_mat = cost_matrix_dict(travel_df)
-    actual_lat = [coords.loc[code].lat for code in actual]
-    actual_lng = [coords.loc[code].lng for code in actual]
 
     print("building zone-transition penalty table...")
     pij_table = build_pij_table(args.processed_dir)
@@ -79,23 +106,7 @@ def main() -> None:
         print(f"  {label}: official score = {s:.6f}")
         panels.append((label, solved_codes, s))
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 7), sharex=True, sharey=True)
-    for ax, (label, solved_codes, s) in zip(axes, panels):
-        solved_lat = [coords.loc[code].lat for code in solved_codes]
-        solved_lng = [coords.loc[code].lng for code in solved_codes]
-
-        ax.plot(actual_lng, actual_lat, linestyle=":", linewidth=2, color=ACTUAL_COLOR, label="Actual driver route", zorder=2)
-        ax.plot(solved_lng, solved_lat, linestyle="-", linewidth=2, color=SOLVED_COLOR, marker="o", markersize=4, label="Solved route", zorder=3)
-        ax.scatter([coords.loc[solved_codes[0]].lng], [coords.loc[solved_codes[0]].lat], s=120, marker="*", color=DEPOT_COLOR, label="Depot (start)", zorder=4)
-
-        ax.set_title(f"{label}\nofficial score: {s:.4f}  (0.0 = identical to actual, lower is better)")
-        ax.set_xlabel("Longitude")
-        ax.set_ylabel("Latitude")
-        ax.legend(loc="best", fontsize=9)
-        ax.grid(True, alpha=0.3)
-
-    fig.suptitle(f"Route {args.route_id}  ({len(route.node_codes)} stops)", fontsize=12)
-    fig.tight_layout()
+    fig = build_comparison_figure(args.route_id, len(route.node_codes), coords, actual, panels)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=150)
     print(f"saved figure to {args.output}")
