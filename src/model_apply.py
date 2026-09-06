@@ -145,6 +145,46 @@ def load_route(processed_dir: Path, route_id: str) -> RouteData:
     )
 
 
+def make_distance_callback(
+    route: RouteData,
+    manager: pywrapcp.RoutingIndexManager,
+    pij_table: ZonePenaltyTable | None,
+    alpha: float,
+):
+    """Builds the hybrid arc-cost callback C_ij = T_ij + alpha * scale * P_ij
+    (or plain T_ij if pij_table is None). Factored out of solve() so
+    fleet_solver.py's multi-vehicle model can register the exact same cost
+    math instead of re-deriving it."""
+
+    def distance_callback(from_index: int, to_index: int) -> int:
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        if to_node == route.depot_idx:
+            return 0  # open route: the closing arc back to the depot is free and dropped from the reported order
+        t_ij = route.distance_matrix[from_node][to_node]
+        if pij_table is None:
+            return t_ij
+        p_ij = pij_table.get(route.zones[from_node], route.zones[to_node])
+        return round(t_ij + alpha * route.mean_travel_time * p_ij)
+
+    return distance_callback
+
+
+def make_time_callback(route: RouteData, manager: pywrapcp.RoutingIndexManager):
+    """Builds the real-elapsed-time callback (transit + service time) used for
+    the Time dimension's hard time-window constraints. Factored out of
+    solve() so fleet_solver.py can reuse the identical physical-time model."""
+
+    def time_callback(from_index: int, to_index: int) -> int:
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        if to_node == route.depot_idx:
+            return 0
+        return route.distance_matrix[from_node][to_node] + route.service_time[from_node]
+
+    return time_callback
+
+
 def solve(
     route: RouteData,
     time_limit_seconds: int,
@@ -160,28 +200,10 @@ def solve(
     manager = pywrapcp.RoutingIndexManager(n, 1, route.depot_idx)
     routing = pywrapcp.RoutingModel(manager)
 
-    def distance_callback(from_index: int, to_index: int) -> int:
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        if to_node == route.depot_idx:
-            return 0  # open route: the closing arc back to the depot is free and dropped from the reported order
-        t_ij = route.distance_matrix[from_node][to_node]
-        if pij_table is None:
-            return t_ij
-        p_ij = pij_table.get(route.zones[from_node], route.zones[to_node])
-        return round(t_ij + alpha * route.mean_travel_time * p_ij)
-
-    transit_idx = routing.RegisterTransitCallback(distance_callback)
+    transit_idx = routing.RegisterTransitCallback(make_distance_callback(route, manager, pij_table, alpha))
     routing.SetArcCostEvaluatorOfAllVehicles(transit_idx)
 
-    def time_callback(from_index: int, to_index: int) -> int:
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        if to_node == route.depot_idx:
-            return 0
-        return route.distance_matrix[from_node][to_node] + route.service_time[from_node]
-
-    time_idx = routing.RegisterTransitCallback(time_callback)
+    time_idx = routing.RegisterTransitCallback(make_time_callback(route, manager))
     routing.AddDimension(time_idx, route.horizon, route.horizon, True, "Time")
     time_dimension = routing.GetDimensionOrDie("Time")
     for node in range(n):

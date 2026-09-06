@@ -69,7 +69,7 @@ pip install -r requirements.txt
 streamlit run src/app.py
 ```
 
-This opens a multi-page Streamlit app: a Home page with the baseline-vs-hybrid comparison demo (pick a sample route or build your own), an About page, and a How to Use page.
+This opens a multi-page Streamlit app: a Home page with the baseline-vs-hybrid comparison demo (pick a sample route or build your own), a **Fleet Planner** page that splits a route across multiple vehicles (see below), an About page, and a How to Use page.
 
 ### Run the raw pipeline from the command line
 
@@ -88,9 +88,18 @@ python src/model_score.py --route-id <RouteID_...>
 
 # Reproduce the 15-route baseline-vs-hybrid comparison
 python src/compare_baseline_vs_hybrid.py --n-routes 15
+
+# Split a route across a fleet of vehicles instead of one driver (capacitated VRP)
+python src/model_apply_fleet.py --route-id <RouteID_...> --num-vehicles 3
 ```
 
 Each script also accepts `--help` for its full flag list (processed-data directory, time budget, seed, etc.).
+
+### Multi-vehicle routing (Fleet Planner)
+
+`src/fleet_solver.py` extends the single-vehicle solver to a **Capacitated VRP with Time Windows (CVRPTW)**: one route is split across a fleet of vehicles instead of one driver, using OR-Tools' native multi-vehicle support and the exact same hybrid cost function (`C_ij = T_ij + alpha * scale * P_ij`) as `model_apply.py` — nothing about the cost math is duplicated or reimplemented. Each stop's demand is its total package volume (`volume_cm3`), the one physical quantity the dataset provides that a real van's cargo space is limited by; a vehicle-capacity dimension keeps each vehicle's load within a configurable limit.
+
+There is **no official Amazon score for a multi-vehicle split** — the dataset's ground truth (`actual_sequences.json`) is one driver's single sequence per route, with no notion of splitting it across vehicles. `model_apply_fleet.py` and the Fleet Planner dashboard page report total travel time and capacity/time-window feasibility per vehicle instead.
 
 ## Dataset
 
@@ -100,12 +109,41 @@ This project runs on the **2021 Amazon Last-Mile Routing Research Challenge data
 aws s3 sync --no-sign-request s3://amazon-last-mile-challenges/almrrc2021/ ./data/
 ```
 
+## Docker
+
+The dashboard runs standalone using the small, git-committed `data/deploy/` subset — no need to download the full dataset first.
+
+```bash
+docker build -t last-mile-routing .
+docker run -p 8501:8501 last-mile-routing
+# open http://localhost:8501
+```
+
+The CLI pipeline commands (`data_pipeline.py`, `model_apply.py`, `model_apply_fleet.py`, `model_score.py`) need the full `data/processed/`, which isn't baked into the image (it's gitignored and ~568MB). Mount your local `data/` directory and override the command instead:
+
+```bash
+# macOS / Linux
+docker run -v "$(pwd)/data:/app/data" last-mile-routing \
+    python src/model_apply.py --route-id <RouteID_...> --alpha 1.0
+
+# Windows (Git Bash) -- $(pwd) returns a /c/... path that Docker's Git Bash
+# wrapper mis-translates inside the container-side half of a -v argument;
+# MSYS_NO_PATHCONV=1 plus a plain Windows-style path avoids that
+MSYS_NO_PATHCONV=1 docker run -v "D:/path/to/repo/data:/app/data" last-mile-routing \
+    python src/model_apply.py --route-id <RouteID_...> --alpha 1.0
+
+# Windows (PowerShell)
+docker run -v "${PWD}/data:/app/data" last-mile-routing `
+    python src/model_apply.py --route-id <RouteID_...> --alpha 1.0
+```
+
 ## Known Limitations
 
 - **Solver feasibility is ~90%, not 100%,** at a 15-second solve budget — in a 30-route random sample, 3/30 routes came back infeasible almost instantly under the `PARALLEL_CHEAPEST_INSERTION` strategy. Not yet root-caused. (At the 60-second budget used for the headline comparison, feasibility was 15/15.)
 - **An XGBoost per-stop "difficulty score" model was tried and dropped.** It never reached a usable validation R² (best result: -0.0424, still negative after a feature-leakage fix), so per an explicit stop condition it was not wired into the live cost function. It's kept in the repo (`model_build.py`, `models/`) as documented, unused exploration; a lightweight zone-transition-frequency penalty (`zone_penalty.py`) is used instead.
 - **Results are time-budget sensitive.** The same route can score meaningfully differently depending on how long OR-Tools is allowed to search (e.g. 0.1749 at 60s vs. 0.2287 at 20s on one test route) — this is expected behavior for the `GUIDED_LOCAL_SEARCH` metaheuristic under a fixed wall-clock limit, not a bug. All comparison numbers in this README used a consistent 60-second budget per solve.
 - **Custom/manual routes (the "build your own route" mode) only get baseline treatment.** The zone-transition penalty model requires historical data tied to specific dataset zones, so routes built from arbitrary addresses are optimized on straight-line-estimated travel time alone, with no zone penalty applied.
+- **The Fleet Planner's multi-vehicle split has no official score.** The dataset's ground truth is one driver's single sequence per route, with no notion of a multi-vehicle split — see the Multi-vehicle routing section above for what's reported instead.
 
 ## Attribution
 

@@ -1,0 +1,13 @@
+venv/
+data/raw/
+data/processed/
+results/
+docs/
+tests/
+__pycache__/
+**/__pycache__/
+*.pyc
+.git/
+.gitignore
+*.log
+comparison_log.txt

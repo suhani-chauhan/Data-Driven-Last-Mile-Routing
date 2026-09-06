@@ -277,4 +277,43 @@ two differ.
   `results/comparison.csv`); visualized for the 33-stop stress-test route in
   `results/route_comparison.png` via `src/plot_route_comparison.py`.
 
-**Not yet started:** full evaluation-set scoring, Dockerization.
+**Multi-vehicle routing (Fleet Planner) — complete:**
+- `src/fleet_solver.py` extends `model_apply.py`'s single-vehicle ATSP to a
+  Capacitated VRP with Time Windows (CVRPTW): a route is split across
+  `num_vehicles` OR-Tools vehicles instead of one. The hybrid arc-cost and
+  time-window logic is not reimplemented — `model_apply.py`'s
+  `distance_callback`/`time_callback` closures were factored out into
+  module-level `make_distance_callback`/`make_time_callback` functions that
+  both the single- and multi-vehicle solvers register, verified
+  behavior-preserving by re-running `model_apply.py` after the refactor.
+- Capacity dimension: demand per stop = summed package `volume_cm3` (the
+  dataset has no weight field); default vehicle capacity is an even split of
+  the route's total volume plus 40% slack for imbalance
+  (`fleet_solver.default_capacity_cm3`), not a fixed constant, since routes
+  vary hugely in total package volume.
+- **No official Amazon score applies to this mode** — `actual_sequences.json`
+  is one driver's single sequence per route, with no ground truth for a
+  multi-vehicle split. `fleet_summary`/`compute_vehicle_stats` report total
+  travel time and capacity/time-window feasibility per vehicle instead.
+- CLI: `src/model_apply_fleet.py`. Dashboard: a new "Fleet Planner" page
+  (`src/pages/fleet_planner.py`), registered in `src/app.py`, with a
+  per-vehicle colored map (shared map-building code moved out of
+  `pages/home.py` into `src/dashboard_common.py` so both pages use identical
+  map conventions without duplicating that logic) and a per-vehicle stats
+  table. Verified end-to-end in a live `streamlit run` session (Home page
+  unaffected; Fleet Planner solves, renders per-vehicle map layers, and
+  reports zero time-window violations on the 33-stop demo route split across
+  3 vehicles).
+
+**Docker — complete:** a `Dockerfile` (`python:3.11-slim`, not the original
+brief's literal "Ubuntu 20.04" wording — a deliberate, documented deviation;
+a slim Python base needs no manual Python install and every dependency here
+has a prebuilt Linux wheel) defaults to running the dashboard against the
+small, git-committed `data/deploy/` subset, so `docker run` works without
+first downloading the full ~568MB dataset. The CLI pipeline commands need
+the full `data/processed/`, which isn't baked into the image — documented in
+README.md as a bind-mount + command override. Verified with a real
+`docker build` + `docker run`, confirming the dashboard loads and solves at
+`localhost:8501`.
+
+**Not yet started:** full evaluation-set scoring, zone-habit visualization.

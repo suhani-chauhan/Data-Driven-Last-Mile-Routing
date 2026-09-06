@@ -11,6 +11,7 @@ import streamlit as st
 pg = st.navigation(
     [
         st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        st.Page("pages/fleet_planner.py", title="Fleet Planner", icon="🚚"),
         st.Page("pages/about.py", title="About", icon="ℹ️"),
         st.Page("pages/how_to_use.py", title="How to Use", icon="❓"),
     ],
