@@ -1,0 +1,182 @@
+HOW TO EXPLAIN THIS PROJECT — SIMPLE SPEAKING NOTES
+=====================================================
+(One section per slide. Just read the "SAY THIS" part in your own words —
+you don't have to memorize it word for word.)
+
+
+SLIDE 1 — TITLE
+-----------------
+SAY THIS:
+"My project is called Data-Driven Last-Mile Routing. In simple words, it's
+about delivery routes — like how an Amazon driver decides which house to
+go to first, second, third, and so on. I built a system that plans this
+route not just by using math, but by also learning from how real drivers
+actually deliver packages."
+
+
+SLIDE 2 — THE PROBLEM
+-----------------
+SAY THIS:
+"Normally, when a computer plans a delivery route, it just picks the
+shortest path — like a straight line between houses. But real drivers
+don't always take the shortest path. Why? Because of things like — you
+can't park here, this road is one-way, this shortcut saves time. A
+computer doesn't know any of that. So the 'shortest' route on paper is
+often not the route a real driver would actually take."
+
+
+SLIDE 3 — WHY IT MATTERS
+-----------------
+SAY THIS:
+"This isn't just a small issue — it actually costs companies real money
+and time. If the route a computer suggests doesn't match how drivers
+really work, drivers just ignore it and do their own thing anyway, which
+means all that route-planning was wasted. This exact problem was even
+given as a challenge by Amazon and MIT university in 2021, so it's a
+real, serious problem in the delivery industry, not something I made up."
+
+
+SLIDE 4 — DATASET
+-----------------
+SAY THIS:
+"To build this, I used real data from Amazon — over 9,000 real delivery
+routes that real drivers actually completed. This data tells me things
+like: where the packages needed to go, what time they needed to arrive
+by, how long it takes to travel between two stops, and — most
+importantly — the exact order in which the real driver visited all the
+stops. That last part is what lets me check whether my system's suggested
+route matches what a real human actually did."
+
+
+SLIDE 5 — HOW IT WORKS (PART 1)
+-----------------
+SAY THIS:
+"Let me explain how the system actually works, step by step. First, there
+are two things I prepare in advance, one time only: I clean up the messy
+raw data into neat tables, and I study all the past routes to learn a
+pattern — basically, which areas drivers move between often, and which
+combinations they almost never do.
+Then, every time someone asks the system to plan a new route: it picks up
+that one route's data, checks which 'areas' the delivery stops belong to,
+and looks up how common or rare it is for a driver to jump from one area
+to another."
+
+
+SLIDE 6 — HOW IT WORKS (PART 2)
+-----------------
+SAY THIS:
+"Next, the system combines two things — the real travel time between
+stops, AND a 'penalty' for jumps that real drivers rarely make. Think of
+it like: even if a path is technically shorter, if almost no driver ever
+takes it, the system treats it as a bad option.
+Then it uses a route-solving tool to actually work out the best order to
+visit all the stops, while still following hard rules like delivery time
+windows. Finally, it gives back the suggested order of stops — and if we
+want to check how good it is, we compare it to what the real driver
+actually did."
+
+
+SLIDE 7 — THE MAIN IDEA / FORMULA
+-----------------
+SAY THIS:
+"There's one small formula behind all of this, but don't worry, it's
+simple in meaning: Cost = real travel time + a penalty for unusual moves.
+So if two stops are close together but almost no driver ever travels
+between them in that order, the system adds a penalty and avoids that
+option. If drivers commonly travel between two areas, there's little to
+no penalty. This is really the heart of the whole project — teaching the
+math to respect human habit, not just distance."
+
+
+SLIDE 8 — TOOLS USED
+-----------------
+SAY THIS:
+"To build this, I used a few well-known tools. For cleaning and handling
+the large amount of data, I used Python tools like pandas. For actually
+solving the route, I used Google's route-optimization tool called
+OR-Tools. I also tried building a machine learning model to predict
+'difficulty' of each stop, but that didn't work well, so I explain that
+honestly in a later slide instead of hiding it. And for the app you'll
+see in a moment, I used a tool called Streamlit to make it interactive."
+
+
+SLIDE 9 — THE APP / DEMO
+-----------------
+SAY THIS:
+"I also built a simple interactive dashboard so anyone can try this out,
+not just look at numbers. You can compare the plain shortest-path route,
+my improved route, and the real driver's route, all on the same map. You
+can also simulate delivering the packages one by one. And you can even
+type in your own addresses and get a suggested route for a delivery
+that isn't even in the original data."
+
+
+SLIDE 10 — RESULTS
+-----------------
+SAY THIS:
+"So does this actually work better? Yes. I tested it on 15 real delivery
+routes, comparing the plain shortest-path method against my improved
+method. On average, my method's route order was about 32% closer to what
+the real driver actually did, compared to the plain method. Lower score
+means closer to the real driver, and my method scored better on most of
+the 15 routes."
+
+
+SLIDE 11 — BEING HONEST ABOUT LIMITATIONS
+-----------------
+SAY THIS:
+"I want to be upfront that this system isn't perfect, and I think that's
+actually important to mention rather than hide. Sometimes the
+route-solver fails to find a valid answer if I don't give it enough time
+to think. I also tried a machine learning model for predicting difficulty
+of stops, but it just didn't perform well, so I didn't use it in the
+final system — I kept it in the project only as a documented experiment.
+Also, results can change a bit depending on how long I let the computer
+search for the best answer, and if someone types in a brand new address
+that isn't in the historical data, the system can only use the basic
+method for that one, not the improved one."
+
+
+SLIDE 12 — WHAT'S NEXT
+-----------------
+SAY THIS:
+"Going forward, I want to test this on the full, much larger set of
+routes, not just the 15 I tested first. I also want to figure out why
+the solver sometimes fails, package this so it's easier to run on any
+computer, and possibly explore an additional model to make the
+predictions even better."
+
+
+SLIDE 13 — THANK YOU
+-----------------
+SAY THIS:
+"That's my project. Thank you for listening — I'm happy to answer any
+questions."
+
+
+-----------------------------------------------------
+QUICK ANSWERS IF SOMEONE ASKS A HARD QUESTION
+-----------------------------------------------------
+
+Q: What is "OR-Tools"?
+A: It's a free tool made by Google that's really good at solving
+   "visit all these places in the best order" type problems.
+
+Q: What is "XGBoost" / the machine learning model that didn't work?
+A: It's a popular machine learning tool. I tried using it to predict how
+   "difficult" each delivery stop was, but it didn't give accurate enough
+   predictions, so I didn't use it in the final version.
+
+Q: What do you mean by "zone"?
+A: I grouped delivery stops into neighborhood-like areas, so I could
+   study how often drivers move from one area to another, instead of
+   looking at every single address individually.
+
+Q: Why lower score = better in your results?
+A: The scoring method measures "how different is my route from the real
+   driver's route" — so a smaller number means my route matches the real
+   driver more closely, which is what we want.
+
+Q: Is this data real?
+A: Yes — it's real, official data released by Amazon and MIT university
+   from an actual research competition in 2021, not made-up data.
